@@ -1,0 +1,25 @@
+\contentsline {subsection}{\numberline {0.1}other crap}{2}
+\contentsline {subsubsection}{\numberline {0.1.1}Similar R2 Institutions}{2}
+\contentsline {subsubsection}{\numberline {0.1.2}Montana State compared to R1 Institutions}{4}
+\contentsline {section}{\numberline {1}Principal Components Analysis}{6}
+\contentsline {subsection}{\numberline {1.1}What is PCA}{6}
+\contentsline {subsection}{\numberline {1.2}Calculating Scores and Loadings}{6}
+\contentsline {subsection}{\numberline {1.3}Dimension Reduction: How Many Scores Should Be Used}{7}
+\contentsline {subsection}{\numberline {1.4}Regression and Classification}{7}
+\contentsline {section}{\numberline {2}Recreating The Carnegie Classifications}{8}
+\contentsline {subsection}{\numberline {2.1}The 2015 Update}{8}
+\contentsline {subsection}{\numberline {2.2}Why Rank the Data?}{8}
+\contentsline {subsection}{\numberline {2.3}Aggregate Index}{9}
+\contentsline {subsection}{\numberline {2.4}Per Capita Index}{9}
+\contentsline {subsection}{\numberline {2.5}Combining the Indices}{10}
+\contentsline {subsection}{\numberline {2.6}Method For Ties}{10}
+\contentsline {section}{\numberline {3}Sensitivity of the Rankings}{12}
+\contentsline {subsection}{\numberline {3.1}Single Variable Movement: Aggregate Index}{12}
+\contentsline {subsection}{\numberline {3.2}Single Variable Movement: Both Indices}{13}
+\contentsline {subsection}{\numberline {3.3}Shiny App: Simultaneous Movements}{14}
+\contentsline {section}{\numberline {4}Discussion}{19}
+\contentsline {subsection}{\numberline {4.1}Montana State as an R2 Institution}{19}
+\contentsline {subsection}{\numberline {4.2}Moving Up: How Hard Would It Be?}{19}
+\contentsline {subsection}{\numberline {4.3}Snapshots vs. Averages}{20}
+\contentsline {subsection}{\numberline {4.4}Limitations of Static Analysis}{20}
+\contentsline {subsection}{\numberline {4.5}Final Thoughts}{21}

@@ -1,0 +1,310 @@
+---
+title: "GLMs Homework 6"
+author: "Paul Harmon"
+date: "March 30, 2017"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Problem 1
+a. The data frame is displayed below. 
+```{r}
+Defendant <- c("W","W","W","W","B","B","B","B")
+Victim <- c("W","W","B","B","W","W","B","B")
+Frequency <- c(19, 151-19,0,9,11,63-11,6,103-6)
+Penalty <- c("Y","N","Y","N","Y","N","Y","N")
+  
+death <- data.frame(cbind(Defendant,Victim,Penalty,Frequency)) 
+death
+
+Def <- c("W", "W", "B", "B")
+Vic <- c("W", "B", "W", "B")
+Freq <- c(19, 0, 11, 6)
+Total <- c(151, 9, 63,103)
+
+death.logit <- data.frame(cbind(Def, Vic, Freq, Total))
+death.logit
+```
+
+b. __Construct partial tables needed to study the conditional association between the defendant's race and the death penalty verdict, conditional on the victim's race. Find and interpret the sample conditional odds ratios, adding 0.5 to each cell to reduce the impact of the zero cell count.__
+The conditional partial table is given below. We are conditioning on the victim's race, so we are looking at each column in the table. The conditional odds ratios are given below: 
+
+Given that the victim is black, the estimated conditional odds that a black defendant gets the death penalty verdict are 1.27 times higher than the odds of a white defendant getting the death penalty. 
+Given that the victim is white, the estimated conditional odds that a black defendant gets the death penalty verdict are 1.4 times the odds of a white defendant getting the death penalty. 
+
+```{r}
+t1 <- xtabs(Frequency ~ Defendant + Penalty + Victim ) + 0.5
+t1
+#conditional that victim is black
+(t1[[2]]*t1[[3]])/(t1[[1]]*t1[[4]])
+#conditional that victim is white
+(t1[[6]]*t1[[7]])/(t1[[5]]*t1[[8]])
+
+
+
+
+```
+
+c. __Sample marginal odds ratio. Do the data exhibit Simpson's paradox?__
+The partial marginal table is given below. The marginal odds that a black defendant gets the death penalty are 16 percent less than the marginal odds that a white defendant gets the death penalty. 
+
+To put it succinctly, the conditional tables indicate that white defendants are more likely to get the death penalty but the marginal tables indicate that white people are more likely to get the death penalty. Because the conditional and marginal odds appear to say different things, we would say that these data do indeed exhibit Simpson's paradox. 
+
+```{r}
+t2 <- xtabs(Frequency ~ Defendant + Penalty)
+t2
+(t2[2]*t2[3])/(t2[1]*t2[4])
+
+
+
+```
+
+d.Logistic Regression Model:
+  + i. What is the estimated marginal odds ratio between defendant's race and death penalty verdict? 
+  The estimated marginal odds ratio is calculated as follows, using the model: 
+  
+  $$\hat{log}(\frac{\pi}{1-\pi}) = \hat{\beta_{0}} + \hat{\beta_1}DefendantRace $$ 
+The odds of a white defendant getting the death penalty vs the odds of a black defendant getting the death penalty look like the following since the Defendant race variable is 1 for whites (in the numerator) and 0 for blacks (denominator). Then, we have:  
+$$ = \frac{exp(\hat{\beta_{0}} + \hat{\beta_1}DefendantRace)}{exp(\hat{\beta_0})} = exp(\hat{\beta_1}) $$ 
+
+  
+  + ii. Calculate and interpret a 95% CI for the marginal odds ratio for the death penalty comparing white defendants to black ones. 
+  We are 95 % confident that the true marginal odds for the death penalty for white defendants is between 0.59 and 2.36 times the odds of the death penalty for black defendants. 
+  
+  + iii. Is there significant statsitical evidence to suggest that the defendant's race has an effect on the odds of the death penalty?
+  No. The 95% confidence interval includes a value of 1, indicating no evidence that the defendant's race influences the odds of the death penalty. 
+```{r}
+glm.1 <- glm(cbind(Freq,Total - Freq) ~ Def, family = binomial(link = "logit"))
+summary(glm.1)
+
+library(boot)
+inv.logit(coef(glm.1)) #would give probability scale, not really what we want here
+1/exp(coef(glm.1)) #gives us the odds
+
+#confidence intervals: 
+exp(coef(glm.1)[2] + 1.96 * 0.3539)
+exp(coef(glm.1)[2] - 1.96 * 0.3539)
+
+
+```
+
+e.Fit a logistic regression model which allows for conditional associations:
+```{r}
+glm.2 <- glm(cbind(Freq,Total - Freq) ~ Def + Vic, family = binomial(link = "logit"))
+summary(glm.2)
+
+#Condition on White Victim
+exp(coef(glm.2)[2] + coef(glm.2)[3])
+
+#Condition on Black Victim
+exp(coef(glm.2)[2])
+
+library(boot)
+exp(confint(glm.2))
+```
+  + The estimated conditional odds ratio between defendant's race and the death penalty for black victims? For White victims? Show your work. 
+  If we condition on black victims, several indicators go to 0. We then have:
+  
+  $$ = \frac{exp(\hat{\beta_0} + \hat{\beta_{1}Def)}}{exp(\hat{\beta_0)}} = exp(\hat{\beta_1})$$
+  
+  For white victims, we have to include a few more terms. However, we get the same conditional odds ratio. 
+  
+  $$ = \frac{exp(\hat{\beta_0} + \hat{\beta_{1}Def) + \hat{\beta_2Victim}}}{exp(\hat{\beta_0)}+ \hat{\beta_2Victim}} = exp(\hat{\beta_1})$$ 
+  
+  
+  + Calculate and interpret an approximate 95% confidence interval for the conditional odds ratio of the death penalty comparing white defendants to black defendants conditioned on victim's race. 
+  
+  We are 95% confident that, conditioning no the defendant's race, the true odds of the death penalty for white defendants are between .295 and 1.43 times the odds of the death penalty for black defendants. 
+  
+  + Is there significant statistical evidence to suggest that the defendant's race has an effect on the odds of the death penalty after we control for the victim's race? Justify you answer. 
+  
+  Since the confidence interval for the conditional odds includes 1, we conclude that the defendant's race does not have an effect on the odds of the death penalty after controlling for the victim's race. 
+  
+
+f. I fit the four loglinear models. The fitted conditional odds ratios between Defendant and Penalty, conditioned on Victim type, are given below. 
+```{r}
+library(MASS)
+mod1.ll <- glm(Frequency ~ Defendant + Victim + Penalty, family = poisson(link = "log"))
+mod2.ll <- glm(Frequency ~ Defendant * Victim + Penalty * Victim, family = poisson(link="log"))
+mod3.ll <- glm(Frequency ~ Defendant *Victim + Victim*Penalty + Defendant*Penalty, family = poisson(link = "log"))
+mod4.ll <- glm(Frequency ~ Defendant * Victim * Penalty, family = poisson(link = "log"))
+
+#Conditional Odds Ratios:
+exp(coef(mod1.ll)[2]) #Conditional odds ratio for white defendant
+    
+exp(coef(mod2.ll)[2] )#Conditional odds for white defendant, black victim
+exp(coef(mod2.ll)[2] + coef(mod2.ll)[5]) #conditional odds for white defendant, white vic
+    
+#black vic, no dp
+exp(coef(mod3.ll)[2])
+#white vic, no dp
+exp(coef(mod3.ll)[2] + coef(mod2.ll)[5]) 
+#white vic dp
+exp(sum(coef(mod3.ll)[c(2:7)]))
+#black vic dp
+exp(coef(mod3.ll)[2] + coef(mod3.ll)[4] + coef(mod3.ll)[6])
+
+coef(mod4.ll)
+#black vic no dp
+exp(coef(mod4.ll)[2])
+# white vic no dp
+exp(coef(mod4.ll)[2] + coef(mod4.ll)[3] + coef(mod4.ll)[5])
+
+# black vic dp
+exp(coef(mod4.ll)[2] + coef(mod4.ll)[4] + coef(mod4.ll)[6])
+
+# white vic dp
+exp(sum(coef(mod4.ll)[c(2:8)]))
+
+
+```
+
+
+g. I assessed the goodness-of-fit for each model type. I would choose either model two or model three as they have large p-values. In either case, we do not have evidence of a lack of fit. The saturated model technically fits the best (model 4); however, in the interest of parsimony I think that either model 2 or 3 are better. Model 3 requires estimation of more parameters; however, I think it may be more useful in this context. 
+```{r}
+pchisq(mod1.ll$dev,mod1.ll$df.residual,lower.tail=FALSE) #small p-value
+pchisq(mod2.ll$dev,mod2.ll$df.residual,lower.tail=FALSE)
+pchisq(mod3.ll$dev,mod3.ll$df.residual,lower.tail=FALSE)
+#Model 4 is the saturated model so it has deviance 0. No test needed here; would result in p-value of 1. 
+#I'd pick model 2 since it has the largest p-value and is more parsimonious than . 
+
+```
+
+h.A 95% confidence interval for the conditional odds ratios between Victim and Penalty, conditioned on Defendant, is given below. We have to calculate the standard error (for whites) using the variance-covariance matrix from the model. 
+
+In the first model, if we condition on having a black defendant, everything in the odds ratio will cancel out except the last interaction term, the interaction between victim and penalty. We are 95% confident that the true odds of a black defendant getting the death penalty with a white victim is between 1.97 and 3.78 times the odds of getting the death penalty with a black victim. 
+
+In the second model, conditioning on a white defendant, we will end up keeping the defendant/victim interaction as well in the model. We are 95% confident that the true odds of getting the death penalty for a white defendant with white victim are between 24 and 255 times larger than the odds of the death penalty with a black victim. This seems unusually large, but I am pretty sure I have the right values; however, there are a number of moving parts involved in these odds ratios so my intutition may just be wrong.  
+
+```{r}
+# picked model 2
+vc <- vcov(mod2.ll)
+
+# Odds ratios for black defendant
+exp(coef(mod2.ll)[6]) + c(1,-1)*1.96*.4635
+
+# Odds ratio for white defendant: needs covariance matrix
+#We would have 
+standard.error <- sqrt(vc[5,5] + vc[6,6] + 2*vc[5,6])
+#
+exp(sum(coef(mod2.ll)[c(5,6)]) + c(1,-1)*1.96*standard.error)
+
+
+```
+
+
+
+
+
+##Problem 2
+a. The marginal pmf of y can be found as follows. First we need to get the joint distribution, then integrate out the $\labmda$ piece.
+$$f_{y}(Y) = f(Y|\lambda)f(\lambda) = \frac{(\frac{k}{u})^{k}}{\Gamma(k)} \lambda^{k-1} e^{\frac{-k\lambda}{u}} \frac{e^{-\lambda}\lambda^{y}}{y!}$$ 
+Where $y = 0,1,2...$ and k and $\lambda$ are both > 0. 
+
+Carrying out some algebra and changing the way we write a few terms, we obtain the joint:
+$$ f(y,\lambda) = \frac{(\frac{k}{u})^{k}}{\Gamma(k)} \lambda^{k-1} e^{\frac{-k\lambda}{u}} \frac{e^{-\lambda}\lambda^{y}}{\Gamma(y+1)}$$ 
+We now integrate the joint over the support of $\lambda$:
+$$ f(y) = \int_{0}^{\infty}\frac{(\frac{k}{u})^{k}}{\Gamma(k)} \lambda^{k-1} e^{\frac{-k\lambda}{u}} \frac{e^{-\lambda}\lambda^{y}}{\Gamma(y+1)} d\lambda$$ 
+As much fun as it would be to try and directly integrate this, we can move some terms around to see that there's a kernel of a gamma distribution sitting in this thing. Moving some terms around, we can see that this is equal to the following: 
+$$ = \frac{(\frac{k}{u})^{k}}{\Gamma(k)\Gamma(y+1)}\int_{0}^{\infty}\lambda^{k+y-1} e^{-(\frac{k}{u}+1)\lambda}d\lambda $$ 
+We can multiply in the correct constants to get: 
+
+$$  = \frac{(\frac{k}{u})^{k}(\Gamma(k+y))(\frac{k}{u}+1)^{-(k+y)}}{\Gamma(k)\Gamma(y+1)}\int_{0}^{\infty}\lambda^{k+y-1}\frac{(\frac{k}{u}+1)^{k+y}}{\Gamma(k+y)} e^{-(\frac{k}{u}+1)\lambda}d\lambda$$ 
+The integral is a PDF integrated over its entire support so it is equal to 1. Then we are left with the terms on the left. This is the PMF of a negative binomial distribution; we can transform some terms to quickly see that it is equal to the desired form:
+$$  = \frac{(\frac{k}{u})^{k}(\Gamma(k+y))(\frac{k}{u}+ 1)^{(k+y)}}{\Gamma(k)\Gamma(y+1)} = \frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)}(\frac{\mu}{\mu + k})^{y}(\frac{k}{\mu + k})^{k}$$ 
+
+b. We can then show that this is a member of the exponential dispersion family:
+
+
+First, recall the form of an exponenetial dispersion family:
+$$ exp(\frac{y_i\theta_i - b(\theta_i)}{a(\phi)} + c(y_i, \phi) $$ 
+I think it is a bit easier to go back to the previous form to try and get the negative binomial PDF into the exponential dispersion family form. Starting here, we have:
+$$ f(y) = (\frac{k}{\mu})^k(\frac{\mu}{k+\mu})^{(k+y)}\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)}$$ 
+We take the exponential of the log to get in the right form:
+$$= exp(log((\frac{k}{\mu})^k(\frac{\mu}{k+\mu})^{(k+y)}\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)})) $$ 
+Simplifying, we obtain:
+$$ = exp(klog((\frac{k}{\mu}) + (k+y)(log(\frac{\mu}{k+\mu})) + log(\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)})) $$ 
+More algebra follows:
+$$ = exp(klog(k) - klog(\mu) + k(log(\frac{\mu}{k+\mu})) + y(log(\frac{\mu}{k+\mu})) + log(\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)})) $$ 
+We can organize some terms to obtain:
+$$ = exp(\frac{y(log(\frac{\mu}{k+\mu})) - (-k)(log(\frac{\mu}{k+\mu})-log(\mu))}{1} +   log(\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)})+ klog(k) )$$
+Here, I have the right form for the natural parameter in the first term; I still have a few pieces floating around that need to be cleaned up. Using properties of logs, I can move the $klog(k)$ and $klog(\mu)$ to see that the $\mu$ terms in the log end up cancelling out.
+
+$$ = exp(\frac{y(log(\frac{\mu}{k+\mu})) - (-k)(log(\frac{k}{k+\mu}))}{1} +   log(\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)})) $$ 
+Recognizing that $\frac{k}{\mu + k} = 1 - \frac{\mu}{\mu + k}$, we can write this as:
+$$= exp(\frac{y(log(\frac{\mu}{k+\mu})) - (-k)(log(1-\frac{\mu}{k+\mu}))}{1} +   log(\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)}))$$
+This would seemingly put us in a bit of a conundrum. The inside of the second log term cannot be broken up into two pieces. I have to credit Kenny with with coming up with a devious mathematical trick that solves this issue. It relies on the fact that the $b(\theta)$ need only be some _function_ of $\theta$. We can simply take the exponential of the log of the inside, as follows. 
+
+$$ = exp(\frac{y(log(\frac{\mu}{k+\mu})) - (-k)(log(1-exp(log(\frac{\mu}{k+\mu}))))}{1} +   log(\frac{\Gamma(y+k)}{\Gamma(k)\Gamma(y+1)}))$$ 
+Now we have the correct form! This gives us natural parameter $\theta = log(\frac{\mu}{k+\mu})$ and dispersion parameter 1. 
+
+
+
+
+##Problem 3
+a. If we model the number of reinfections observed in a group, the variable that should be considered the offset term is the amount of time that each group was followed for.  A quick look at the "years followed" variable shows that some people were followed for more than 55 years whereas others were followed only briefly; we should account for this difference when modeling the number of reinfections observed. 
+
+b. The Poisson regression model that shows how the rate of reinfection varies with race, education, initial infection and condom use is given below. Note that we are not directly modeling the total number of reinfections because each group was observed for a different amount of time. Instead, we model the _rate_ of reinfections that occurs over a given constant period of time. 
+
+The (additive) theoretical model takes the following form with $\mu_i$ as the total number of reinfections per group and the $t_i$ as the amount of time the individuals in the group were observed. Technically, the way I have this written is as a model of the rate $\lambda = \frac{\mu_i}{t_i}$. 
+$$log(\frac{\mu_i}{t_i}) = \beta_0 + \beta_1Race_i + \beta_2Ed_i + \beta_3InitialInfect_i + \beta_4Cond_i$$
+We can directly model the mean, then, by expanding the log and moving the offset term to the right-hand side of the equation. 
+
+c. I fit the model below. The summary is included. We can interpret the coefficients for condom usage and race. 
+
+The estimated count of STD reinfections for folks who always use condoms is 32 percent lower than the estimated count of reinfections for those who either sporadically use them or do not use them at all, holding other covariates constant.   
+
+The estimated count of STD reinfections for white people is 25.5% lower than for black people, assuming that their other characteristics remain roughly the same. 
+
+```{r}
+setwd("C:/Users/Paul/Downloads")
+std <- read.table("std.txt", header = TRUE)
+
+std.mod <- glm(n.reinfect ~ factor(white) + factor(edugrp) + factor(inftype) + factor(condom) , offset = log(yrsfu), data = std, family = poisson(link = "log"))
+
+summary(std.mod)
+
+#for coefficients
+exp(coef(std.mod))
+
+```
+
+d. To examine the data for overdispersion we can plot the pearson residuals. The plot is given below. Given the mean of the squared residuals is roughly 5, it might be worth looking into a quasi-likelihood method that allows us to estimate an overdispersion parameter. 
+```{r}
+plot(fitted(std.mod),resid(std.mod,"pearson")^2,ylab = "Squared Pearson Residuals",xlab = "Fitted Values", main ="Pearson Residual Plot", pch = 20, col = "red2")
+abline(h = mean(resid(std.mod,"pearson")^2))
+mean(resid(std.mod,"pearson")^2)
+```
+
+I refit my model using quasi-poisson below. After accounting for overdispersion, the conclusions are pretty boring by comparison to the original model. The first model had standard errors which were too small, so nearly every predictor had a small associated p-value. After accounting for problem that the model assumed too small a variance for the data, none of the p-values were very small.  In this case, accounting for overdispersion changes the results in a pretty big way.  
+```{r}
+std.mod.2 <- glm(n.reinfect ~ factor(white) + factor(edugrp) + factor(inftype) + factor(condom) , offset = log(yrsfu), data = std, family = quasipoisson(link = "log"))
+
+summary(std.mod.2)
+library(pander)
+exp(coef(std.mod.2))
+dat1 <- data.frame(cbind(exp(coef(std.mod)),exp(coef(std.mod.2))))
+colnames(dat1) <- c("Poisson","QuasiPoisson")
+pander(dat1)
+```
+
+
+e. The grouped reinfection counts do not appear to folllow a true Poisson distribution because their variance is larger than their mean. If they were truly distributed Poisson, the variance and the mean would be equal. Because they are overdispersed, these data are likely something similar to a Poisson but are better modeled by something slightly less restrictive. 
+
+f. We conduct a likelihood ratio test to see whether the use of condoms has an effect on the rate of reinfection. We showed in class that the LRT test fitted on a quasi-Poisson model actually uses the correct standard errors. In this case, we have only weak (at best) evidence that condom usage actually reduces the chance of re-infection. 
+```{r}
+anova(std.mod.2, test = "LRT")
+```
+
+
+
+
+
+
+
+
+
+

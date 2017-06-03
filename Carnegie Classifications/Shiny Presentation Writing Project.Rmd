@@ -1,0 +1,306 @@
+---
+title: "The Carnegie Classifications: Writing Project"
+author: "Paul Harmon"
+date: "April 2, 2017"
+output: ioslides_presentation
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r setup2 the streets, include = FALSE}
+setwd("C:/Users/Paul/Documents/Carnegie Classifications")
+#updated file
+cc2015.full <- read.csv("CC2015data.csv", header = TRUE, as.is = TRUE)
+
+cc2015 <- cc2015.full[(cc2015.full$BASIC2015>14&cc2015.full$BASIC2015<18),]
+cc2015$BASIC2015 <- factor(cc2015$BASIC2015)
+#ranked
+
+frank <- function(x){rank(x, ties.method = "first")}
+lrank <- function(x){rank(x, ties.method = "last")}
+minrank <- function(x){rank(x, ties.method = "min")}
+maxrank <- function(x){rank(x, ties.method = "max")}
+
+cc2015Ps<-
+na.omit(cc2015[,c("NAME","BASIC2010","BASIC2015","FACNUM","HUM_RSD","OTHER_RSD","SOCSC_RSD","STEM_RSD","PDNFRSTAFF","S.ER.D","NONS.ER.D")])
+
+#calculate the ranked data
+cc2015.r <- data.frame(cc2015Ps[,1:3],sapply(cc2015Ps[,-c(1:3)],minrank)) 
+
+cc2015percap <- cc2015Ps[,c("PDNFRSTAFF","S.ER.D","NONS.ER.D")]/cc2015Ps$FACNUM
+cc2015percap.r<-data.frame(sapply(cc2015percap,minrank))
+AGcc <- function(x){
+  #rank the data
+  ranked <- data.frame(x[,1:3],sapply(x[,-c(1:3)],minrank)) 
+  #get pc's
+  pca.ranked <- prcomp(ranked[,-c(1:4)], scale = TRUE)
+  summary <- summary(pca.ranked)
+  standard.score <- scale(pca.ranked$x[,1], scale = TRUE, center = TRUE)
+  #needs to return the standardized scores
+  return(list(scorez = standard.score, sum =summary))
+}
+#function for percap
+PCcc <- function(x){
+  #rank the data
+  ranked.dat <- data.frame(sapply(x,minrank)) 
+  #get pc's
+  pc.ranked <- prcomp(ranked.dat, scale = TRUE)
+  summary <- summary(pc.ranked)
+  standard.score <- scale(pc.ranked$x[,1], scale = TRUE, center = TRUE)
+  return(list(scorez = standard.score, sum = summary))
+}
+a <- which(cc2015Ps$NAME == "Montana State University")
+```
+
+
+## Introduction: What are the Carnegie Classifications?
++ The Carnegie Classifications are a metric by which like institutions can be compared. 
++ Three Classifications of Doctorate-Granting Universities
++ Many different classifications of Bachelor's, Associates-only institutions
+_In 2015, the classifcations were used on more than 4600 institutions, everything from Stanford University to the Golf Academy of America._ 
+
+
+![Montana State (R-2), Stanford (R-1), Boise State(R-3): ](C:/Users/Paul/Documents/Carnegie Classifications/Colleges.png)
+
+## Montana State University: A History
++ Montana State had been classified as R-1: "Very High Research Activity" in 2005 and 2010
++ In 2015, Montana State moved to R-2: "High Research Activity"
+
+<div class="columns-2">
+![2015 Carnegie Classifications](C:\Users\Paul\Documents\Carnegie Classifications\unscaled.classifications.jpeg)
+</div>
+
+
+##Montana State's Nearest Neighbors
++ The system is designed for __CLASSIFICATION__ of institutions, not rankings!
++ Institutions near each other can be considered a "peer group" of schools
+Montana State's peer group:
+
+![Nearest Institutions to Montana State](C:\Users\Paul\Documents\Carnegie Classifications\Nearest Neighbors.jpeg)
+
+## How are the Classifications Calculated?
+The classifications are calculated based on two indices of institutional output. The first is based on a weighted average of the number of PhDs awarded by the institution; the second is based on a per-capita measurement of research expenditures and research staff. 
+__Aggregate Index:__
+$$Ag.Index_{i}  = HumanitiesPhD_{i} + StemPhD_{i} + SocialSciencePhD_{i} + OtherPhD_{i}  + StemExpenditures_{i} + NonStemExpenditures_{i} + ResearchStaff_{i} $$ 
+__Per Capita Index:__ 
+$$PC.Index_{i} = \frac{ResearchStaff_{i} + StemExpenditures_{i} + NonStemExpenditures_{i}}{FacultySize_{i}} $$ 
+
+
+## Principal Components Analysis
+__Goal__: To reduce _p_ predictors into _k_ components via eigenvalue decomposition.
+PCA can be done on unscaled raw data or on a scaled covariance matrix.
+
+Given p predictors $x_1, x_2,...x_p$, we can generate via an eigenvalue decomposition of __X__ a set of p new variables $y_1,y_2,...,y_n$. The $y$'s are ordered so that $y_1$ explains the most variation in the underlying $x$'s, and $y_p$ the least. 
+
+__Scores__: The new set of covariates. These are functions (weighted averages) of the old covariates. 
+__Loadings__: The loadings give the formula used to calculate the scores from the original covariates. 
+
+_But how do we do dimension reduction?_ Since we know how much variation in $x$ is explained by each $y$-score, we can make a new factor matrix of some subset of the scores. 
+__The Carnegie Classifications use only the first score from each PCA run.__ 
+
+## PCA: Up for Debate
+Some of the decisions made by the researchers creating the Carnegie Classifications are worth discussion:
+<div class="columns-2">
+  - Using only the __first__ PC to create the index. The Aggregate index explains 70% of the variation in the original aggregate variables, the Per-Capita index explains 71% (Borden 2016). 
+  - However, the second PC score explains an additional 25% more variation for the per capita index and 12 percent more for the aggregate index. Should they have included those?
+  - Finally, is PCA the best way to work with these data? Only 3 variables are used to create the per-capita index and only 7 for the aggregate - dimension reduction is usually more of interest with __big__ sets of covariates.
+</div>
+
+
+## Replicating the Classifications
+The scores were calcluated using the following methods:
+<div class="columns-2">
+  - Rank each instution on the covariates
+  - Calculate Principal Component Scores for each index
+  - Plot the first PC score from the aggregate index vs the first PC score from the per-capita index
+</div>
+```{r classplot, include = TRUE}
+#plot the two: more of a final plot
+percap <- PCcc(cc2015percap)
+ag <- AGcc(cc2015Ps)
+plot(ag$scorez, -percap$scorez, col = cc2015Ps$BASIC2015, pch = 20, xlab = "Aggregate Index", ylab = "Per Capita Index", main = "Scaled Scores")
+points(ag$scorez[a],-percap$scorez[a],col = "blue", pch = 20)
+
+```
+
+
+## Methods for Ties
+Because the scores are based on ranks, __not__ the original data. Since most of the variables used are counts, many schools will be tied, especially for the aggregate index. R calculates ties in several ways:
+<div class="columns-2">
+- Average (default): If the first 3 schools are tied, each would get rank 1.5. 
+- Minimum: If the first 3 schools are tied, each would get rank 1.
+- Maximum: If the first 3 schools are tied, each would get rank 3.
+- First: If the first 3 schools are tied, permute 1 to 3 to get rank. 
+- Last: If the first 3 schools are tied, permute 3 to 1 to get rank. 
+</div>
+
+##Methods for Ties:
+![Indexes for each ranking type](C:\Users\Paul\Documents\notthedroidsyourelookingfor.png)
+
+## Where were lines drawn?
++ In 2010, lines were hand drawn. (Borden 2017)
++ In 2015, scores were un-standardized and circles with radii $984.007$ and  $409.461$. 
++ The choices of radii were somewhat arbitrary.
+
+## Unstandardized Scores
+![Indexes for each ranking type](C:\Users\Paul\Documents\Carnegie Classifications\unscaled.classifications.jpeg)
+
+## Single Metric Changes: Aggregate Index
+We can get to R-1 by adding Social Science PhDs 
+![Indexes for each ranking type](C:\Users\Paul\Documents\Carnegie Classifications\DistR1Ag.jpeg)
+
+## Single Metric Changes: Per Capita Index
+We cannot actually get to R-1 by changing only one per-capita variable. 
+![Indexes for each ranking type](C:\Users\Paul\Documents\Carnegie Classifications\DistR1both.jpeg)
+
+##Multi-Dimensional Movement: A Shiny App
+
+
+```{r shiny app}
+library(shiny)
+
+# Define UI for application that draws a histogram
+ui <- fluidPage(
+  
+  # Application title
+  titlePanel("Sensitivity of the Carnegie Classifications"),
+  
+  # Sidebar with a slider input for number of bins 
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("sosc",
+                  "Number of Additional Social Science PhDs from 0:",
+                  min = 0,
+                  max = 60,
+                  value = 0)
+      ,
+      
+      sliderInput("other",
+                  "Number of Additional Other PhDs from 9:",
+                  min = -9,
+                  max = 50,
+                  value = 0)
+      ,
+      sliderInput("stem",
+                  "Number of Additional STEM PhDs from 45:",
+                  min = -45,
+                  max = 50,
+                  step = 5,
+                  value = 0)
+      ,
+      sliderInput("hum",
+                  "Number of Additional Humanities PhDs from 2:",
+                  min = -2,
+                  max = 50,
+                  value = 0)
+      ,
+      sliderInput("staff",
+                  "Additional Research Staff from 75:",
+                  min = -75,
+                  max = 2000,
+                  value = 0,
+                  step = 100)
+      ,
+      sliderInput("serd",
+                  "Additional Stem Research Expenditures:",
+                  min = -105000,
+                  max = 2300000,
+                  value = 0,
+                  step = 10000)
+      ,
+      sliderInput("nonserd",
+                  "Additional Non-Stem Research Expenditures:",
+                  min = -9000,
+                  max = 1000000,
+                  value = 0,
+                  step = 1000)
+    ),
+    
+    # Show a plot of the generated distribution
+    mainPanel(
+      plotOutput("distPlot")
+    )
+  )
+)
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+ # cc2015.full <- read.csv("Updated2015.csv", header = TRUE)
+   output$distPlot <- renderPlot({
+     
+          ##To Move Left or Right
+      # adds one phd to the number of social science phds
+            cc2015Ps[a,"SOCSC_RSD"] <- cc2015Ps[a,"SOCSC_RSD"] + input$sosc
+      #adds one phd to the number of other phds
+            cc2015Ps[a,"OTHER_RSD"] <- cc2015Ps[a,"OTHER_RSD"] + input$other
+      #adds one phd to the number of stem phds
+            cc2015Ps[a,"STEM_RSD"] <- cc2015Ps[a,"STEM_RSD"] + input$stem
+      #adds one phd to the number of humanities phds
+            cc2015Ps[a,"HUM_RSD"] <- cc2015Ps[a,"HUM_RSD"] + input$hum
+    ###To Move Up or Down:
+      #adds research staff by 1 ; also adds to the FACNUM
+            cc2015Ps[a,"PDNFRSTAFF"] <- cc2015Ps[a,"PDNFRSTAFF"] + input$staff
+            
+      #adds to NonSERD expenditures
+            cc2015Ps[a,"NONS.ER.D"] <- cc2015Ps[a,"NONS.ER.D"] + input$nonserd
+      #adds to SERD expenditures
+            cc2015Ps[a,"S.ER.D"] <- cc2015Ps[a,"S.ER.D"] + input$serd
+        
+      ##now re-calculate the per-capita scores, with additional staff added in
+      percap <- cc2015Ps[,c("PDNFRSTAFF","S.ER.D","NONS.ER.D")]/cc2015Ps$FACNUM
+            
+      percap <- PCcc(percap)
+      ag <- AGcc(cc2015Ps)
+      
+      mean.percap <- 340.52
+      sd.percap <- 170.51
+      mean.ag <- 780.74
+      sd.ag <- 413.10
+      
+      rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+      rawscores.ag <- sd.ag * ag$scorez + mean.ag
+      
+      plot(rawscores.ag, rawscores.percap, pch = 20, col = cc2015Ps$BASIC2015, asp = 1, xlab = "Aggregate Index", ylab = "Per Capita Index")
+      title("2015 Carnegie Classifications")
+      points(rawscores.ag[a],rawscores.percap[a],col = "blue", pch = 18)
+      funk <- function(r,x){sqrt(r^2 - x^2)}
+      x <- seq(500,984,by =1)
+      r <- 984.007
+      lines(x,funk(r,x), col = "gray50")
+      x <- c(seq(1,409,by = 1),409.461)
+      r<- 409.461
+      lines(x,funk(r,x))
+      legend('bottomright', fill = c(1,2,3), legend = c("R-1","R-2","R-3"))
+     })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+```
+
+##Conclusions
++ Maintaining high per-capita metrics is helpful
++ While we are closer to R-1 than R-3, getting over the border would involve spending more money and producing more PhDs
++ To get to R-1, we need to focus on growing __all__ PhD programs, but adding Social Science PhDs would have a big effect
+
+
+## Next Steps: 
+There may be better, less subjective ways to do this. Some changes to the methodology I'm trying are:
++ Rather than clustering on the first PC score for two indices, why not include the first two PC scores?
++ Model-Based Clustering - lets see how many groups are formed if we let the data speak for themselves
+
+
+##Acknowledgements:
++ Dr. Mark Greenwood
++ Dr. Christina Fastnow, Dr. Ian Godwin, Rebecca Belou - Office of Planning and Analysis
++ Dr. Vic Borden, Indiana University 
+
+## Questions:
+Thanks for coming!
+
+

@@ -1,0 +1,674 @@
+---
+title: "Demystifying the Carnegie Classifications"
+subtitle: "A Sensitivity Analysis"
+author: "Paul Harmon"
+ 
+date: "April 17, 2017"
+output: 
+ beamer_presentation:
+    theme: "AnnArbor"
+    colortheme: "crane"
+    fonttheme: "structurebold"
+    fig_height: 3.6
+    fig_width: 5
+---
+
+```{r setup2 the streets, include = FALSE}
+setwd("C:/Users/Paul/Documents/Carnegie Classifications")
+#updated file
+cc2015.full <- read.csv("CC2015data.csv", header = TRUE, as.is = TRUE)
+
+cc2015 <- cc2015.full[(cc2015.full$BASIC2015>14&cc2015.full$BASIC2015<18),]
+cc2015$BASIC2015 <- factor(cc2015$BASIC2015)
+#ranked
+
+frank <- function(x){rank(x, ties.method = "first")}
+lrank <- function(x){rank(x, ties.method = "last")}
+minrank <- function(x){rank(x, ties.method = "min")}
+maxrank <- function(x){rank(x, ties.method = "max")}
+
+cc2015Ps<-
+na.omit(cc2015[,c("NAME","BASIC2010","BASIC2015","FACNUM","HUM_RSD","OTHER_RSD","SOCSC_RSD","STEM_RSD","PDNFRSTAFF","S.ER.D","NONS.ER.D")])
+
+#calculate the ranked data
+cc2015.r <- data.frame(cc2015Ps[,1:3],sapply(cc2015Ps[,-c(1:3)],minrank)) 
+
+cc2015percap <- cc2015Ps[,c("PDNFRSTAFF","S.ER.D","NONS.ER.D")]/cc2015Ps$FACNUM
+cc2015percap.r<-data.frame(sapply(cc2015percap,minrank))
+AGcc <- function(x){
+  #rank the data
+  ranked <- data.frame(x[,1:3],sapply(x[,-c(1:3)],minrank)) 
+  #get pc's
+  pca.ranked <- prcomp(ranked[,-c(1:4)], scale = TRUE)
+  summary <- summary(pca.ranked)
+  standard.score <- scale(pca.ranked$x[,1], scale = TRUE, center = TRUE)
+  #needs to return the standardized scores
+  return(list(scorez = standard.score, sum =summary))
+}
+#function for percap
+PCcc <- function(x){
+  #rank the data
+  ranked.dat <- data.frame(sapply(x,minrank)) 
+  #get pc's
+  pc.ranked <- prcomp(ranked.dat, scale = TRUE)
+  summary <- summary(pc.ranked)
+  standard.score <- scale(pc.ranked$x[,1], scale = TRUE, center = TRUE)
+  return(list(scorez = standard.score, sum = summary))
+}
+a <- which(cc2015Ps$NAME == "Montana State University")
+
+euclidDist <- function(x1 = x1, y1 = y1, x2 = x2, y2 = y2){
+  distance <- sqrt((x2-x1)^2 + (y2-y1)^2)
+  return(list(dist = distance, mindist = min(distance),xnew = x2,ynew = y2))
+}
+
+```
+
+
+## Introduction: What are the Carnegie Classifications?
++ The Carnegie Classifications group like institutions on research characteristics
++ Three groups of __276__ Doctoral-Granting Universities: R1, R2, R3
++ __Not Rankings!__ These are designed for classification of institutions
+
+
+
+![Montana State (R-2), Stanford (R-1), Boise State(R-3): ](C:\Users\Paul\Documents\Carnegie Classifications\Colleges.png)
+
+## Montana State University: The 2015 Update
++ Montana State had been classified as R-1: "Very High (Highest) Research Activity" in 2005 and 2010
++ In 2015, Montana State moved to R-2: "Higher Research Activity"
++ We can examine universities near Montana State to get an idea of our peer group
+
+So what do Montana State's peers look like?
+
+
+##Montana State's Peer Group
+
+```{r nearest, echo = FALSE, fig.width = 10, fig.height = 6, include = FALSE}
+#replicate 2015:
+pc.2015.rank <- prcomp(cc2015.r[,-c(1:4)], scale = FALSE)
+summary(pc.2015.rank)
+
+pc.2015.percap <- prcomp(cc2015percap.r, scale = TRUE)
+summary(pc.2015.percap)
+
+##Standardize the Scores:
+loadings.ag <- pc.2015.rank$rot[,1]
+sdev.ag <- pc.2015.rank$sdev[1]
+round(loadings.ag *sdev.ag,3)
+
+loadings.pc <- pc.2015.percap$rot[,1]
+sdev.pc <- pc.2015.percap$sdev[1]
+round(loadings.pc * sdev.pc,3)
+
+score.ag <- scale(pc.2015.rank$x[,1], center = TRUE, scale = TRUE)
+score.pc <- scale(pc.2015.percap$x[,1], center = TRUE, scale = TRUE)
+```
+
+```{r actualplot, echo = FALSE, fig.align = 'center', fig.width = 10, fig.height = 10}
+##Plot the Scores
+plot(score.ag, -score.pc,xlab = "Per Capita Ranking",ylab ="Aggregate Ranking",col = cc2015Ps$BASIC2015, type = "n",xlim = c(-.8,.3), ylim = c(.6,1.18), cex = 1, cex.lab = 1.5)
+#plot text
+text(score.ag, -score.pc, labels = cc2015Ps$NAME, col = as.numeric(cc2015Ps$BASIC2015), cex = 1.3)
+#plot points instead
+#points(score.ag,-score.pc,col = as.numeric(cc2015Ps$BASIC2015)+2, pch =20)
+title("Carnegie Classifications: Nearest Neighbors", cex.sub = 1.5)
+
+```
+
+## How are the Classifications Calculated: Two Indices
+The classifications are based on two weighted averages of ranked institutional output: \
+__Aggregate Index:__
+<div class="columns-2">
++ STEM PhD  
++ Social Sciences PhD
++ Humanities PhD
++ Other PhD
++ STEM expenditures
++ Non-STEM expenditures
++ Research Staff
+</div>
+
+__Per Capita Index:__  _(Divided by Faculty Size)_
+<div class="columns-2">
+- STEM Expenditures
+- Non-STEM Expenditures
+- Research Staff 
+</div>
+
+##Raw Data vs Ranks
+```{r include = TRUE, echo = FALSE, fig.align = 'center', fig.height = 6, fig.width = 8}
+library(beanplot)
+par(mfrow = c(2,2))
+beanplot(cc2015Ps[,5], cc2015Ps[,6], cc2015Ps[,7], cc2015Ps[,8], method = "jitter", names = c("Hum","Other","Soc","Stem"), col = "gold3")
+title("Unranked PhDs")
+
+beanplot(cc2015Ps[,10], cc2015Ps[,11], method = "jitter", names = c("STEM","Non-STEM"), col = "gold3")
+title("Unranked Expenditures")
+
+#ranked data
+beanplot(cc2015.r[,5], cc2015.r[,6], cc2015.r[,7], cc2015.r[,8], method = "jitter", names = c("Hum","Other","Soc","Stem"), col = c("steelblue4","white"))
+title("Ranked PhDs")
+
+beanplot(cc2015.r[,10], cc2015.r[,11], method = "jitter", names = c("STEM","Non-STEM"), col = c("steelblue4","white"))
+title("Ranked Expenditures")
+
+
+```
+## Calculating Indices
++ Rank each institution on each variable
++ Perform two Principal Components Analyses on the correlation matrix of both ranked datasets
++ Plot the first PC score from the aggregate index vs the first PC score from the per-capita index
++ Loadings:
+
+```{r classplot, include = TRUE, fig.height = 3, fig.width = 5, fig.align= 'center', echo = FALSE}
+#plot the two: more of a final plot
+percap <- PCcc(cc2015percap)
+ag <- AGcc(cc2015Ps)
+library(pander)
+loadings.table <- data.frame(rbind(round(t(loadings.ag),2), t(c("-","-","-","-", -round(loadings.pc,2)))))
+colnames(loadings.table) <- c("Hum","Other","Soc","STEM", "Staff","S. Exp", "N.S. Exp")
+rownames(loadings.table) <- c("Aggregate", "Per Cap")
+pander(loadings.table)
+
+
+```
+
+
+## Principal Components Analysis
+__Goal__: To reduce a _p_-dimensional set of variables into _k_ components via eigenvalue decomposition.
+PCA can be done on covariance or correlation matrix.
+
+Given p variables $x_1, x_2,...x_p$, we generate via an eigenvalue decomposition of correlation matrix of __X__ a set of p new variables $y_1,y_2,...,y_p$. The $y$'s are ordered so that $y_1$ explains the most variation in the underlying $x$'s, and $y_p$ the least. These are called the __Principal Components__. 
+
+__Scores__: Each observation's value on the new scale. These are functions (weighted averages) of the original variables.
+\
+__Loadings__: The loadings give the formula used to calculate the scores from the original covariates. These are the __weights__ that we examined before. 
+
+By using only the first _k_ PCs, we do dimension reduction. 
+\
+__The Carnegie Classifications use only the first score from each PCA run.__ 
+
+## Dealing with Ties
+Since most of the variables used are counts, many schools will be tied, especially for the aggregate index. But there are several ways to handle tied ranks:
+<div class="columns-2">
+- __Average__ (R's default): If the first 3 schools are tied, each would get rank 1.5. Tie-breaking leads to gain by about half. 
+- __Minimum__: If the first 3 schools are tied, each would get rank 1 (smallest to largest). Tie-breaking leads to gain by the number of institutions that are tied.
+- _The loadings from the minimum closely matched the Carnegie Classifiaction loadings._
+- __Maximum__: If the first 3 schools are tied, each would get rank 3 (largest to smallest). Tie-breaking leads to no gain. 
+</div>
+
+##Methods for Ties: Minimum Method Used
+```{r tiesplot, fig.width = 10, fig.height =8, fig.align = 'center', echo = FALSE}
+par(mfrow = c(2,1))
+#initialize some stuff
+loadings.mat <- matrix(0,nrow = 7,ncol = 5)
+loadingspc.mat <- matrix(0,nrow = 3,ncol = 5)
+funk <- c(rank, frank,lrank,minrank,maxrank)
+
+
+funky.names <- c("min","max")
+function.vec <- c(minrank, maxrank)
+
+
+for (j in 1:length(function.vec)){
+ #call the correct function
+  funk <- function.vec[[j]]
+ #creates different ranked dataframes 
+  cc2015.r <- data.frame(cc2015Ps[,1:3],sapply(cc2015Ps[,-c(1:3)],funk)) 
+  cc2015percap.r<-data.frame(sapply(cc2015percap, funk))
+                             
+ #calculate the PCA for aggregate ranks
+  pc.2015.rank <- prcomp(cc2015.r[,-c(1:4)], scale = TRUE)
+  summary(pc.2015.rank)
+ #calculate the PCA for per-capita ranks
+  pc.2015.percap <- prcomp(cc2015percap.r, scale = TRUE)
+  summary(pc.2015.percap)
+  
+ ##Standardize the Scores:
+  loadings.ag <- pc.2015.rank$rot[,1]
+  sdev.ag <- pc.2015.rank$sdev[1]
+  loadings.mat[,j] <- round(loadings.ag *sdev.ag,3)
+  
+  loadings.pc <- pc.2015.percap$rot[,1]
+  sdev.pc <- pc.2015.percap$sdev[1]
+  loadingspc.mat[,j] <- round(loadings.pc * sdev.pc,3)
+  
+  #create a plot
+  score.ag <- scale(pc.2015.rank$x[,1], center = TRUE, scale = TRUE)
+  score.pc <- scale(pc.2015.percap$x[,1], center = TRUE, scale = TRUE)
+  
+  ##Plot the Scores
+  plot(score.ag, -score.pc,xlab = "Per Capita Ranking",ylab ="Aggregate Ranking",col = cc2015Ps$BASIC2015, type = "n", ylim = c(-2,2), xlim = c(-2,2))
+  #plot points instead
+  points(score.ag,-score.pc,col = as.numeric(cc2015Ps$BASIC2015), pch =16)
+  
+  title(c("Ranking Method: ", funky.names[j]))
+
+}
+```
+
+## Where were lines drawn between groups?
+The Carnegie Classifications are based on three groups. However, the data do not form 3 distinct clusters. 
+
++ In 2010, lines were hand drawn (Borden 2017)
++ In 2015, scores were un-standardized and circles with radii $984.007$ and  $409.461$ 
++ The choices of radii were still arbitrary
+
+## The Carnegie Classifications: 
+
+```{r unstandardized scores, echo = FALSE, fig.width = 7, fig.height = 6, fig.align = 'center'}
+mean.percap <- 340.52
+sd.percap <- 170.51
+mean.ag <- 780.74
+sd.ag <- 413.10
+
+rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+rawscores.ag <- sd.ag * ag$scorez + mean.ag
+
+plot(rawscores.ag, rawscores.percap, pch = 20, col = cc2015Ps$BASIC2015, asp = 1, xlab = "Aggregate Index", ylab = "Per Capita Index")
+title("2015 Carnegie Classifications")
+points(rawscores.ag[a],rawscores.percap[a],col = "gold3", pch = 18, cex = 1.2)
+funk <- function(r,x){sqrt(r^2 - x^2)}
+x <- seq(500,984,by =1)
+r <- 984.007
+lines(x,funk(r,x),lty = 1, col = "gray60")
+x <- seq(0,409,by =1)
+r<- 409.461
+lines(x,funk(r,x), lty = 1, col = "gray60")
+text(730,535, "MSU", col = "blue3")
+
+legend('bottomright', fill = c(1,2,3), legend = c("R-1","R-2","R-3"))
+```
+
+
+
+## Single Metric Changes: Aggregate Index
+```{r agindex, fig.height = 10, fig.width = 15, echo = FALSE, cache = TRUE, fig.align = 'center'}
+#First I'm going to look at the aggregate ones, then the per capita ones.
+
+par(mfrow = c(2,2))
+##SOSC_RSD
+#choose a variable, perturb it
+variable.new <- "SOCSC_RSD"
+#variable.new <- "STEM_RSD"
+#variable.new <- "HUM_RSD"
+#variable.new <- "OTHER_RSD"
+
+###Start code
+
+#choose a variable, perturb it
+upper <- 100
+mindist <- new.y <- new.x <- rep(0,upper)
+num.sosc <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1
+  new.ccPercap[a,] <- new.ccPercap[a,]
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.sosc[j] <- cc2015Ps[a,variable.new] + j
+}
+
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: Social Sciences", xlab = "Additional PhDs", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,180))
+abline(v = which.min(mindist), col = "blue")
+#text(88,120, "58 Additional PhDs")
+##############################################################################33
+
+#STEM RSD
+variable.new <- "STEM_RSD"
+
+###Start code
+#choose a variable, perturb it
+upper <- 650
+mindist <- new.y <- new.x <- rep(0,upper)
+num.stem <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1
+  new.ccPercap[a,] <- new.ccPercap[a,]
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.stem[j] <- cc2015Ps[a,variable.new] + j
+}
+
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: STEM", xlab = "Additional PhDs", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,180))
+
+
+########################
+
+variable.new <- "HUM_RSD"
+
+###Start code
+#choose a variable, perturb it
+upper <- 250
+mindist <- new.y <- new.x <- rep(0,upper)
+num.hum <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1
+  new.ccPercap[a,] <- new.ccPercap[a,]
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.hum[j] <- cc2015Ps[a,variable.new] + j
+}
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: Humanities", xlab = "Additional PhDs", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,180))
+
+
+#################################3
+
+variable.new <- "OTHER_RSD"
+
+###Start code
+#choose a variable, perturb it
+upper <- 300
+mindist <- new.y <- new.x <- rep(0,upper)
+num.other <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1
+  new.ccPercap[a,] <- new.ccPercap[a,]
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.other[j] <- cc2015Ps[a,variable.new] + j
+}
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: Other PhDs", xlab = "Additional PhDs", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,180))
+
+```
+
+
+## Single Metric Changes: Per Capita Index
+```{r pcchanges, fig.width = 10, fig.height = 8, echo = FALSE, cache = TRUE, fig.align = 'center'}
+par(mfrow = c(2,2))
+#choose a variable, perturb it
+variable.new <- "PDNFRSTAFF"
+
+###Start code
+#choose a variable, perturb it
+upper <- 5000
+mindist <- new.y <- new.x <- rep(0,upper)
+num.staff <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1
+  new.cc.percap <- new.ccPs[,c("PDNFRSTAFF","S.ER.D","NONS.ER.D")]/new.ccPs$FACNUM #reflects changes in per cap values 
+  
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.staff[j] <- cc2015Ps[a,variable.new] + j
+}
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: Research Staff", xlab = "Additional Staff", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,175))
+
+
+##SERD###############################
+variable.new <- "S.ER.D"
+
+###Start code
+#choose a variable, perturb it
+upper <- 2200
+mindist <- new.y <- new.x <- rep(0,upper)
+num.serd <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+increase <- seq(from = 0, to = 222800, by = 1000)
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1000
+  new.cc.percap <- new.ccPs[,c("PDNFRSTAFF","S.ER.D","NONS.ER.D")]/new.ccPs$FACNUM #reflects changes in per cap values 
+  
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.serd[j] <- cc2015Ps[a,variable.new] + 1000*j
+}
+
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: Stem Expenditures", xlab = "Additional Expenditures (Thousands of Dollars)", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,175))
+
+
+
+
+
+####NONSERD#############################################
+variable.new <- "NONS.ER.D"
+
+###Start code
+#choose a variable, perturb it
+upper <- 150
+mindist <- new.y <- new.x <- rep(0,upper)
+num.nonserd <- rep(0, upper)
+dist.matrix <- matrix(ncol = upper, nrow = 485)
+
+new.ccPs <- cc2015Ps
+new.ccPercap <- cc2015percap
+
+for (j in 1:upper){
+  #perturb value for just Montana State
+  new.ccPs[a,variable.new] <- new.ccPs[a,variable.new] + 1000
+  new.cc.percap <- new.ccPs[,c("PDNFRSTAFF","S.ER.D","NONS.ER.D")]/new.ccPs$FACNUM #reflects changes in per cap values 
+  
+  
+  #re-runs everything
+  #plot the two: more of a final plot
+  percap <- PCcc(new.ccPercap)
+  ag <- AGcc(new.ccPs)
+  
+  #unstandardize stuff
+  rawscores.percap <- sd.percap * -percap$scorez + mean.percap
+  rawscores.ag <- sd.ag * ag$scorez + mean.ag
+  
+  #calculate distances to r1
+  y <- funk(984.007, 500:984)
+  x <- 500:984
+  new.dist <- euclidDist(x1=x,y1 = y, x2 = rawscores.ag[a], y2 =rawscores.percap[a])
+  mindist[j] <- new.dist$mindist
+  dist.matrix[,j] <- new.dist$dist
+  new.y[j] <- new.dist$ynew
+  new.x[j] <- new.dist$xnew
+  num.nonserd[j] <- cc2015Ps[a,variable.new] + j*1000
+}
+
+
+plot(seq(1:j), mindist, main = "Distance to R1: Non-Stem Expenditures", xlab = "Additional Expenditures (Thousands of Dollars)", type = "l", ylab = "Distance to R-1", col = "tomato2", ylim = c(0,175))
+
+```
+
+##Multi-Dimensional Movement
+![Increase PhDs by 5, research staff by 25, STEM Expenditures by $70 million and Non-STEM Expenditures by $10 million: ](C:\Users\Paul\Documents\Carnegie Classifications\Snapshot.png)
+
+##Multi-Dimensional Movement
+It is clear that to move up, Montana State needs to focus on increasing on __multiple__ dimensions. Focusing on the more sensitive metrics (Social Science PhDs) is important, but gains on all metrics together move things more quickly. 
+
++ Aggregate variables only move us to the right or left
++ Per-Capita Variables move us up or down
++ The way that we report/classify research staff could impact classifications
+ 
+ __Can you get to R1?__  _Come to my poster presentation Friday 9:30-12:30 in the SUB Ballrooms or snap a photo of the QR code to see where MSU would be with multidimensional movement!_
+ 
+
+##Conclusions
+The Carnegie Classifications are __subjective__ measurements of some institutional characteristics, not a measurement of institutional quality!
+
++ Maintaining high per-capita metrics is helpful, but we need to produce more PhDs as well
++ While we are closer to R-1 than R-3, maintaining out status should be our first goal
++ It may be easier to lose ground (towards R-3) than to get closer to R-1
++ Breaking ties can lead to big gains: Just a single Social Sciences PhD would help MSU move from rank 1 to rank 61! 
+
+
+
+##Acknowledgements:
++ Dr. Mark Greenwood
++ Dr. Christina Fastnow, Dr. Ian Godwin, Rebecca Belou - Office of Planning and Analysis
++ Dr. Vic Borden, Indiana University 
++ Wesley McClintick, University of Idaho Institutional Effectiveness and Accreditation
+
+## References:
+
+Borden, V. (March 2017). _Personal Communication_.
+
+Becker R.A., Chambers.J.M., and Wilks, A.R. (1988) _The New S Language_. Wadsworth & Brooks/Cole. 
+
+Everitt, B., & Hothorn, T. (2011). An introduction to applied multivariate analysis with R. Berlin: Springer.
+
+Friedman, J., Hastie, T., & Tibshirani, R. (2009). The Elements of Statistical Learning: Data Mining, Inference, and Prediction (2nd ed.). Springer.
+
+McClintick, W. (2016). Carnegie Sensitivity Analysis: Moving from R-2 to R-1. _Poster Presentation_.
+
+
+
+##Supplemental Slide: Biplots
+
+```{r supp, include = TRUE, echo = FALSE, fig.align = 'center', fig.width = 8}
+par(mfrow = c(1,2))
+biplot(pc.2015.rank, col = c("gray80","tomato")); title("Aggregate Biplot")
+biplot(pc.2015.percap, col = c("gray80", "tomato")); title("Per Capita Biplot")
+```
+
+
+## Supplemental Slides: Some Things to Think About
+Some of the decisions made by the researchers creating the Carnegie Classifications are worth discussion:
+<div class="columns-2">
+  - Using only the __first__ PC to create the index. The Aggregate index explains 70% of the variation in the original aggregate variables, the Per-Capita index explains 71% (Borden 2016). 
+  - However, the second PC score explains an additional 25% more variation for the per capita index and 12 percent more for the aggregate index. Should they have included those?
+  - Finally, is PCA the best way to work with these data? Only 3 variables are used to create the per-capita index and only 7 for the aggregate - dimension reduction is usually more of interest with __big__ sets of covariates.
+  - Raw vs. Ranked vs. PC Scores of two groups of variables
+
+<div>
+
+
+
+
